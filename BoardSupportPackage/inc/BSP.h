@@ -20,6 +20,7 @@
 #include "Joystick.h"
 #include "leds.h"
 #include "LCD.h"
+#include "Game.h"
 
 
 /********************************** Public Functions **************************************/
