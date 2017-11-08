@@ -15,11 +15,8 @@ void main(void)
     WDTCTL = WDTPW | WDTHOLD;           // Stop watchdog timer
     G8RTOS_Init();
 
-    G8RTOS_AddThread(&DrawObjects, 1, "draw");
-    G8RTOS_AddThread(&IdleThread, 255, "idle");
-    G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
+    G8RTOS_AddThread(&CreateGame, 1, "start");
 
-    CreateGame();
     G8RTOS_Launch();
     while(1);
 }
