@@ -160,7 +160,7 @@ void SysTick_Handler()
     {
         if(ptr->isAsleep)
         {
-            if(ptr->sleepCNT == SystemTime)
+            if(ptr->sleepCNT-SystemTime <= 10)
             {
                 ptr->isAsleep = false;
             }
@@ -299,6 +299,7 @@ int G8RTOS_AddThread(void (*threadToAdd)(void), uint8_t priority, char *str)
         threadControlBlocks[i].next = &threadControlBlocks[0];
         threadControlBlocks[i].previous = &threadControlBlocks[i-1];
         threadControlBlocks[i-1].next = &threadControlBlocks[i];
+        threadControlBlocks[0].previous = &threadControlBlocks[i];
     }
 
     threadControlBlocks[i].sp = &threadStacks[i][STACKSIZE-16];
@@ -355,7 +356,7 @@ threadID_t G8RTOS_GetThreadID()
 
 int32_t G8RTOS_KillThread(threadID_t threadID)
 {
-    uint32_t state;
+    int32_t state;
     state = StartCriticalSection();
 
     if(NumberOfThreads == 1)
@@ -403,7 +404,7 @@ int32_t G8RTOS_KillThread(threadID_t threadID)
 
 int32_t G8RTOS_KillSelf()
 {
-    uint32_t state;
+    int32_t state;
     state = StartCriticalSection();
 
     if(NumberOfThreads == 1)
@@ -428,8 +429,8 @@ int32_t G8RTOS_KillSelf()
 
     NumberOfThreads--;
     EndCriticalSection(state);
-    //return 0;
-    while(1);
+    return 0;
+    //while(1);
 }
 
 
