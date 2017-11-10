@@ -11,6 +11,10 @@
 #include "G8RTOS_Scheduler.h"
 #include "G8RTOS_Structures.h"
 #define startContextSwitch() (SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk)
+int tt=0;
+int ks=0;
+int gs=0;
+int sh=0;
 
 /*
  * G8RTOS_Start exists in asm
@@ -41,7 +45,7 @@ extern tcb_t * CurrentlyRunningThread;
 /*********************************************** Data Structures Used *****************************************************************/
 
 /* Thread Control Blocks
- *	- An array of thread control blocks to hold pertinent information for each thread
+ *  - An array of thread control blocks to hold pertinent information for each thread
  */
 static tcb_t threadControlBlocks[MAX_THREADS];
 
@@ -51,7 +55,7 @@ static tcb_t threadControlBlocks[MAX_THREADS];
 static p_event_t periodicEvents[MAX_P_EVENTS];
 
 /* Thread Stacks
- *	- An array of arrays that will act as invdividual stacks for each thread
+ *  - An array of arrays that will act as invdividual stacks for each thread
  */
 static int32_t threadStacks[MAX_THREADS][STACKSIZE];
 
@@ -86,7 +90,7 @@ static uint16_t IDCounter;
  */
 static void InitSysTick(uint32_t numCycles)
 {
-	/* Implement this */
+    /* Implement this */
     MAP_SysTick_enableModule();
     //MAP_SysTick_setPeriod((ClockSys_GetSysFreq()/numCycles));
     MAP_SysTick_setPeriod(1500);
@@ -96,17 +100,18 @@ static void InitSysTick(uint32_t numCycles)
 /*
  * Chooses the next thread to run.
  * Lab 3 Scheduling Algorithm:
- * 	- Choose the next running thread to be the current like in Round Robin
- * 	- However, now we check if the thread is asleep or blocked
- * 	- if so, then continue iterating through threads until 1 is either not asleep or not blocked.
+ *  - Choose the next running thread to be the current like in Round Robin
+ *  - However, now we check if the thread is asleep or blocked
+ *  - if so, then continue iterating through threads until 1 is either not asleep or not blocked.
  */
 void G8RTOS_Scheduler()
 {
-	/* Implement This */
+    gs =1;
+    /* Implement This */
     //CurrentlyRunningThread = CurrentlyRunningThread->next;
     tcb_t *tempNextThread, *threadToRun;
     uint16_t currentMaxPriority = 256;
-    CurrentlyRunningThread=CurrentlyRunningThread->next;
+   CurrentlyRunningThread=CurrentlyRunningThread->next;
     tempNextThread = CurrentlyRunningThread;
     do
     {
@@ -121,6 +126,7 @@ void G8RTOS_Scheduler()
         }
     }while(CurrentlyRunningThread != tempNextThread);
     CurrentlyRunningThread = threadToRun;
+    gs=0;
 }
 
 /*
@@ -134,7 +140,8 @@ void G8RTOS_Scheduler()
  */
 void SysTick_Handler()
 {
-	/* Implement this */
+    /* Implement this */
+    sh =1;
     SystemTime++;
     int i;
 
@@ -176,6 +183,7 @@ void SysTick_Handler()
         }
     }
     startContextSwitch();
+    sh=0;
 }
 
 /*********************************************** Private Functions ********************************************************************/
@@ -197,7 +205,7 @@ uint32_t SystemTime;
  */
 void G8RTOS_Init()
 {
-	/* Implement this */
+    /* Implement this */
     uint32_t newVTORTable = 0x20000000;
     memcpy((uint32_t *)newVTORTable, (uint32_t *)SCB->VTOR, 57*4);  // 57 interrupt vectors to copy
     SCB->VTOR = newVTORTable;
@@ -210,8 +218,8 @@ void G8RTOS_Init()
 
 /*
  * Starts G8RTOS Scheduler
- * 	- Initializes the Systick
- * 	- Sets Context to first thread
+ *  - Initializes the Systick
+ *  - Sets Context to first thread
  * Returns: Error Code for starting scheduler. This will only return if the scheduler fails
  */
 int G8RTOS_Launch()
@@ -256,39 +264,26 @@ void initStack(uint8_t threadNum)
 
 /*
  * Adds threads to G8RTOS Scheduler
- * 	- Checks if there are still available threads to insert to scheduler
- * 	- Initializes the thread control block for the provided thread
- * 	- Initializes the stack for the provided thread to hold a "fake context"
- * 	- Sets stack tcb stack pointer to top of thread stack
- * 	- Sets up the next and previous tcb pointers in a round robin fashion
+ *  - Checks if there are still available threads to insert to scheduler
+ *  - Initializes the thread control block for the provided thread
+ *  - Initializes the stack for the provided thread to hold a "fake context"
+ *  - Sets stack tcb stack pointer to top of thread stack
+ *  - Sets up the next and previous tcb pointers in a round robin fashion
  * Param "threadToAdd": Void-Void Function to add as preemptable main thread
  * Returns: Error code for adding threads
  */
 int G8RTOS_AddThread(void (*threadToAdd)(void), uint8_t priority, char *str)
 {
+
     int32_t sys_status;
+    tt = 1;
         int deadThreadFound =0;
         sys_status = StartCriticalSection();
         if(NumberOfThreads >= MAX_THREADS){
             return -1;
         }
 
-        threadStacks[NumberOfThreads][STACKSIZE-2] = threadToAdd;
-        threadStacks[NumberOfThreads][STACKSIZE-1] = 0x01000000;   //
-        threadStacks[NumberOfThreads][STACKSIZE-3] = 0x14141414;   // R14
-        threadStacks[NumberOfThreads][STACKSIZE-4] = 0x12121212;   // R12
-        threadStacks[NumberOfThreads][STACKSIZE-5] = 0x03030303;   // R3
-        threadStacks[NumberOfThreads][STACKSIZE-6] = 0x02020202;   // R2
-        threadStacks[NumberOfThreads][STACKSIZE-7] = 0x01010101;   // R1
-        threadStacks[NumberOfThreads][STACKSIZE-8] = 0x00000000;   // R0
-        threadStacks[NumberOfThreads][STACKSIZE-9] = 0x11111111;   // R11
-        threadStacks[NumberOfThreads][STACKSIZE-10] = 0x10101010;  // R10
-        threadStacks[NumberOfThreads][STACKSIZE-11] = 0x09090909;  // R9
-        threadStacks[NumberOfThreads][STACKSIZE-12] = 0x08080808;  // R8
-        threadStacks[NumberOfThreads][STACKSIZE-13] = 0x07070707;  // R7
-        threadStacks[NumberOfThreads][STACKSIZE-14] = 0x06060606;  // R6
-        threadStacks[NumberOfThreads][STACKSIZE-15] = 0x05050505;  // R5
-        threadStacks[NumberOfThreads][STACKSIZE-16] = 0x04040404;
+
 
         int32_t  newStackPointer;
         newStackPointer = &threadStacks[NumberOfThreads][STACKSIZE-16];
@@ -374,6 +369,7 @@ int G8RTOS_AddThread(void (*threadToAdd)(void), uint8_t priority, char *str)
         NumberOfThreads++;
         IDCounter++;
         EndCriticalSection(sys_status);
+        tt =0;
         return 0;
 
 }
@@ -448,12 +444,14 @@ int32_t G8RTOS_KillThread(threadID_t threadID)
 
     NumberOfThreads--;
     EndCriticalSection(state);
+
     return 0;
 }
 
 
 int32_t G8RTOS_KillSelf()
 {
+    ks =1;
     int32_t state;
     state = StartCriticalSection();
 
@@ -478,7 +476,9 @@ int32_t G8RTOS_KillSelf()
     startContextSwitch();
 
     NumberOfThreads--;
+    ks=0;
     EndCriticalSection(state);
+
     return 0;
     //while(1);
 }

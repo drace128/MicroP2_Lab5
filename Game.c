@@ -18,17 +18,29 @@ Ball_t balls[MAX_NUM_OF_BALLS];
 uint16_t numberOfBalls = 0;
 PrevBall_t oldballs[MAX_NUM_OF_BALLS];
 int hostScore, clientScore;
-bool scoreChanged;
+int scoreChanged;
+int gb= false;
+int dob= false;
+int mb= false;
+int rj= false;
+int ub= false;
+int up= false;
+
+
+
+
 
 void GenerateBall()
 {
     while(1)
     {
+        gb = 1;
         if(numberOfBalls < MAX_NUM_OF_BALLS)
         {
             G8RTOS_AddThread(&MoveBall, 1, "MoveBall");
             numberOfBalls++;
         }
+        gb = 0;
         G8RTOS_OS_Sleep(37443);      /*sleep proportional to numOfBalls later*/
     }
 }
@@ -71,6 +83,7 @@ void MoveBall()
 
     while(1)
     {
+        mb= 1;
         switch(checkForCollision(&balls[i]))
         {
         case 1:
@@ -143,8 +156,8 @@ void MoveBall()
 
         if(directionY == 1){balls[i].currentCenterY++;}
         else{balls[i].currentCenterY--;}
-
-        G8RTOS_OS_Sleep(481);
+        mb= 0;
+        G8RTOS_OS_Sleep(1000);
     }
 }
 
@@ -152,6 +165,7 @@ void ReadJoystickClient()
 {
     while(1)
     {
+        rj =1;
         GetJoystickCoordinates(&xCoord, &yCoord);
         if(xCoord > 1000){
             if (client.currentCenter > 72){
@@ -165,6 +179,7 @@ void ReadJoystickClient()
             client.currentCenter++;     //temporarily used to mirror paddle
         }
         }
+        rj = 0;
         G8RTOS_OS_Sleep(379);
     }
 }
@@ -173,6 +188,7 @@ void DrawObjects()
 {
     while(1)
     {
+        dob = 1;
         for(int i = 0; i < MAX_NUM_OF_BALLS; i++)
         {
             if(balls[i].alive)
@@ -183,6 +199,7 @@ void DrawObjects()
         UpdatePlayerOnScreen(&oldhost, &host);
         UpdatePlayerOnScreen(&oldclient, &client);
         displayScore();
+        dob =0;
         G8RTOS_OS_Sleep(19);
     }
 }
@@ -221,6 +238,7 @@ void CreateGame()
 
 void UpdatePlayerOnScreen(PrevPlayer_t * prevPlayerIn, GeneralPlayerInfo_t * outPlayer)
 {
+    up = 1;
     if(outPlayer->currentCenter != prevPlayerIn->Center   )
     {
 
@@ -248,14 +266,17 @@ void UpdatePlayerOnScreen(PrevPlayer_t * prevPlayerIn, GeneralPlayerInfo_t * out
         }
         prevPlayerIn->Center = outPlayer->currentCenter;
     }
+    up = 0;
 }
 
 void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_t outColor)
 {
-    LCD_DrawRectangle(previousBall->CenterX-4, previousBall->CenterX+4, previousBall->CenterY-4, previousBall->CenterY+4, LCD_GREEN);
+    ub = 1;
+    LCD_DrawRectangle(previousBall->CenterX-2, previousBall->CenterX+2, previousBall->CenterY-2, previousBall->CenterY+2, LCD_GREEN);
     LCD_DrawRectangle(currentBall->currentCenterX-2, currentBall->currentCenterX+2, currentBall->currentCenterY-2, currentBall->currentCenterY+2, outColor);
     previousBall->CenterX = currentBall->currentCenterX;
     previousBall->CenterY = currentBall->currentCenterY;
+    ub = 0;
 }
 
 void IdleThread()
