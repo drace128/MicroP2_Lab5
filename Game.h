@@ -11,9 +11,9 @@
 /*********************************************** Includes ********************************************************************/
 #include <stdbool.h>
 #include <stdint.h>
-#include "../G8RTOS_Lab5/G8RTOS.h"
+#include "G8RTOS.h"
 #include "cc3100_usage.h"
-#include "LCDLib.h"
+#include "LCD.h"
 /*********************************************** Includes ********************************************************************/
 
 /*********************************************** Externs ********************************************************************/
@@ -26,7 +26,7 @@ extern semaphore_t PlayerMutex;
 
 /*********************************************** Global Defines ********************************************************************/
 #define MAX_NUM_OF_PLAYERS  2
-#define MAX_NUM_OF_BALLS    8
+#define MAX_NUM_OF_BALLS    4
 
 // This game can actually be played with 4 players... a little bit more challenging, but doable! 
 #define NUM_OF_PLAYERS_PLAYING 2
@@ -290,6 +290,9 @@ void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_
  * Initializes and prints initial game state
  */
 void InitBoardState();
+
+int checkForCollision(Ball_t* ball);
+void displayScore();
 
 /*********************************************** Public Functions *********************************************************************/
 
