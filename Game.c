@@ -9,6 +9,7 @@
 #include "BSP.h"
 #include "G8RTOS.h"
 #include "time.h"
+#include "stdbool.h"
 
 int16_t xCoord, yCoord;
 GeneralPlayerInfo_t host, client;
@@ -16,6 +17,8 @@ PrevPlayer_t oldhost, oldclient;
 Ball_t balls[MAX_NUM_OF_BALLS];
 uint16_t numberOfBalls = 0;
 PrevBall_t oldballs[MAX_NUM_OF_BALLS];
+int hostScore, clientScore;
+bool scoreChanged;
 
 void GenerateBall()
 {
@@ -32,6 +35,7 @@ void GenerateBall()
 
 void MoveBall()
 {
+    bool touched =false;
     uint8_t randomX = 0;
     uint8_t randomY = 0;
     uint8_t directionX = 0;          //right = 1, left = 0, none = 2
@@ -76,40 +80,60 @@ void MoveBall()
             directionX = 0;
             break;
         case 3:
-            directionY = 1;
+           // directionY = 1;
+            if (touched){
+            clientScore++;
+            scoreChanged = true;
+            }
+            balls[i].alive = false;
+            numberOfBalls--;
+            G8RTOS_KillSelf();
             break;
         case 4:
-            directionY = 0;
+           // directionY = 0;
+            if (touched){
+           hostScore++;
+            scoreChanged = true;
+            }
+            balls[i].alive = false;
+            numberOfBalls--;
+            G8RTOS_KillSelf();
             break;
         case 5:
             directionX = 2;
             directionY = 1;
             balls[i].color = LCD_RED;
+            touched = true;
             break;
         case 6:
             directionX = 2;
             directionY = 0;
             balls[i].color = LCD_BLUE;
+            touched = true;
             break;
         case 7:
             directionX = 1;
             directionY = 1;
             balls[i].color = LCD_RED;
+            touched = true;
             break;
         case 8:
             directionX = 1;
             directionY = 0;
             balls[i].color = LCD_BLUE;
+            touched = true;
             break;
         case 9:
             directionX = 0;
             directionY = 1;
             balls[i].color = LCD_RED;
+            touched = true;
             break;
         case 10:
             directionX = 0;
             directionY = 0;
             balls[i].color = LCD_BLUE;
+            touched = true;
             break;
 
         }
@@ -158,7 +182,7 @@ void DrawObjects()
         }
         UpdatePlayerOnScreen(&oldhost, &host);
         UpdatePlayerOnScreen(&oldclient, &client);
-
+        displayScore();
         G8RTOS_OS_Sleep(19);
     }
 }
@@ -182,6 +206,9 @@ void CreateGame()
 
     LCD_Text(10, 0, "00", LCD_RED);
     LCD_Text(10, 220, "00", LCD_BLUE);
+    hostScore =0;
+    clientScore=0;
+    scoreChanged= false;
 
 //    G8RTOS_AddThread(&DrawObjects, 1, "draw");
 //    G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
@@ -254,4 +281,32 @@ int checkForCollision(Ball_t* ball){
     //if (ball->currentCenterY == 72)     return 1;
     //if (ball->currentCenterY == 72)     return 1;
     return 0;
+}
+
+void displayScore(){
+
+    uint8_t hostScoreString[2];
+    uint8_t clientScoreString[2];
+
+
+        if (scoreChanged){
+
+            hostScoreString[1] = hostScore %10 + '0';
+            hostScoreString[0] = hostScore /10 + '0';
+            clientScoreString[1] = clientScore %10 + '0';
+            clientScoreString[0] = clientScore /10 + '0';
+            LCD_DrawRectangle(10, 30,0,30, LCD_BLACK);
+            LCD_DrawRectangle(10, 30,220,240, LCD_BLACK);
+
+            LCD_Text(10, 220, clientScoreString, LCD_BLUE);
+            LCD_Text(10, 0, hostScoreString, LCD_RED);
+
+            scoreChanged = false;
+
+        }
+
+
+
+
+
 }

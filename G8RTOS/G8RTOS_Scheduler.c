@@ -106,6 +106,7 @@ void G8RTOS_Scheduler()
     //CurrentlyRunningThread = CurrentlyRunningThread->next;
     tcb_t *tempNextThread, *threadToRun;
     uint16_t currentMaxPriority = 256;
+    CurrentlyRunningThread=CurrentlyRunningThread->next;
     tempNextThread = CurrentlyRunningThread;
     do
     {
@@ -160,7 +161,7 @@ void SysTick_Handler()
     {
         if(ptr->isAsleep)
         {
-            if(ptr->sleepCNT-SystemTime <= 10)
+            if(ptr->sleepCNT < SystemTime )
             {
                 ptr->isAsleep = false;
             }
@@ -265,67 +266,116 @@ void initStack(uint8_t threadNum)
  */
 int G8RTOS_AddThread(void (*threadToAdd)(void), uint8_t priority, char *str)
 {
-    uint32_t state;
-    state = StartCriticalSection();
-
-    if(NumberOfThreads >= MAX_THREADS)
-    {
-        EndCriticalSection(state);
-        return -1;
-    }
-
-    int i = 0;
-    while(i < MAX_THREADS)
-    {
-        if(!threadControlBlocks[i].alive)
-        {
-            break;
-        }
-        i++;
-        if(i == MAX_THREADS)
-        {
-            EndCriticalSection(state);
+    int32_t sys_status;
+        int deadThreadFound =0;
+        sys_status = StartCriticalSection();
+        if(NumberOfThreads >= MAX_THREADS){
             return -1;
         }
-    }
 
-    if(NumberOfThreads == 0)      //first thread to add
-    {
-        threadControlBlocks[0].next = &threadControlBlocks[0];
-        threadControlBlocks[0].previous = &threadControlBlocks[0];
-    }
-    else
-    {
-        threadControlBlocks[i].next = &threadControlBlocks[0];
-        threadControlBlocks[i].previous = &threadControlBlocks[i-1];
-        threadControlBlocks[i-1].next = &threadControlBlocks[i];
-        threadControlBlocks[0].previous = &threadControlBlocks[i];
-    }
+        threadStacks[NumberOfThreads][STACKSIZE-2] = threadToAdd;
+        threadStacks[NumberOfThreads][STACKSIZE-1] = 0x01000000;   //
+        threadStacks[NumberOfThreads][STACKSIZE-3] = 0x14141414;   // R14
+        threadStacks[NumberOfThreads][STACKSIZE-4] = 0x12121212;   // R12
+        threadStacks[NumberOfThreads][STACKSIZE-5] = 0x03030303;   // R3
+        threadStacks[NumberOfThreads][STACKSIZE-6] = 0x02020202;   // R2
+        threadStacks[NumberOfThreads][STACKSIZE-7] = 0x01010101;   // R1
+        threadStacks[NumberOfThreads][STACKSIZE-8] = 0x00000000;   // R0
+        threadStacks[NumberOfThreads][STACKSIZE-9] = 0x11111111;   // R11
+        threadStacks[NumberOfThreads][STACKSIZE-10] = 0x10101010;  // R10
+        threadStacks[NumberOfThreads][STACKSIZE-11] = 0x09090909;  // R9
+        threadStacks[NumberOfThreads][STACKSIZE-12] = 0x08080808;  // R8
+        threadStacks[NumberOfThreads][STACKSIZE-13] = 0x07070707;  // R7
+        threadStacks[NumberOfThreads][STACKSIZE-14] = 0x06060606;  // R6
+        threadStacks[NumberOfThreads][STACKSIZE-15] = 0x05050505;  // R5
+        threadStacks[NumberOfThreads][STACKSIZE-16] = 0x04040404;
 
-    threadControlBlocks[i].sp = &threadStacks[i][STACKSIZE-16];
-    threadControlBlocks[i].blocked = 0;
-    threadControlBlocks[i].sleepCNT = 0;
-    threadControlBlocks[i].isAsleep = false;
+        int32_t  newStackPointer;
+        newStackPointer = &threadStacks[NumberOfThreads][STACKSIZE-16];
+        if(NumberOfThreads == 0){
+            newStackPointer = &threadStacks[0][STACKSIZE-16];
+            threadControlBlocks[0].next = &threadControlBlocks[0];
+            threadControlBlocks[0].previous = &threadControlBlocks[0];
+            threadControlBlocks[0].sp = newStackPointer;
+            threadControlBlocks[0].alive = true;
+            threadControlBlocks[0].priority = priority;
+            threadControlBlocks[0].blocked = 0;
+            threadControlBlocks[0].ID =((IDCounter << 16));
+            threadControlBlocks[0].isAsleep = 0;
+            threadControlBlocks[0].sleepCNT =0;
+            *threadControlBlocks[0].threadName = *str;
+            threadStacks[0][STACKSIZE-2] = threadToAdd;
+            threadStacks[0][STACKSIZE-1] = 0x01000000;   //
+            threadStacks[0][STACKSIZE-3] = 0x14141414;   // R14
+            threadStacks[0][STACKSIZE-4] = 0x12121212;   // R12
+            threadStacks[0][STACKSIZE-5] = 0x03030303;   // R3
+            threadStacks[0][STACKSIZE-6] = 0x02020202;   // R2
+            threadStacks[0][STACKSIZE-7] = 0x01010101;   // R1
+            threadStacks[0][STACKSIZE-8] = 0x00000000;   // R0
+            threadStacks[0][STACKSIZE-9] = 0x11111111;   // R11
+            threadStacks[0][STACKSIZE-10] = 0x10101010;  // R10
+            threadStacks[0][STACKSIZE-11] = 0x09090909;  // R9
+            threadStacks[0][STACKSIZE-12] = 0x08080808;  // R8
+            threadStacks[0][STACKSIZE-13] = 0x07070707;  // R7
+            threadStacks[0][STACKSIZE-14] = 0x06060606;  // R6
+            threadStacks[0][STACKSIZE-15] = 0x05050505;  // R5
+            threadStacks[0][STACKSIZE-16] = 0x04040404;
+        } else
+        {        int i;
+            for (i =0; i< MAX_THREADS ; i++){
+                if (threadControlBlocks[i].alive == 0){
+                    break;
+                }
+            }
+            newStackPointer = &threadStacks[i][STACKSIZE-16];
+            threadControlBlocks[i].sp = newStackPointer;
+            threadControlBlocks[i].alive = true;
+            threadControlBlocks[i].priority = priority;
+            threadControlBlocks[i].blocked = 0;
+            threadControlBlocks[i].ID = (IDCounter << 16);
+            threadControlBlocks[i].isAsleep = 0;
+            threadControlBlocks[i].sleepCNT =0;
+            *threadControlBlocks[i].threadName = *str;
+            threadStacks[i][STACKSIZE-2] = threadToAdd;
+            threadStacks[i][STACKSIZE-1] = 0x01000000;   //
+            threadStacks[i][STACKSIZE-3] = 0x14141414;   // R14
+            threadStacks[i][STACKSIZE-4] = 0x12121212;   // R12
+            threadStacks[i][STACKSIZE-5] = 0x03030303;   // R3
+            threadStacks[i][STACKSIZE-6] = 0x02020202;   // R2
+            threadStacks[i][STACKSIZE-7] = 0x01010101;   // R1
+            threadStacks[i][STACKSIZE-8] = 0x00000000;   // R0
+            threadStacks[i][STACKSIZE-9] = 0x11111111;   // R11
+            threadStacks[i][STACKSIZE-10] = 0x10101010;  // R10
+            threadStacks[i][STACKSIZE-11] = 0x09090909;  // R9
+            threadStacks[i][STACKSIZE-12] = 0x08080808;  // R8
+            threadStacks[i][STACKSIZE-13] = 0x07070707;  // R7
+            threadStacks[i][STACKSIZE-14] = 0x06060606;  // R6
+            threadStacks[i][STACKSIZE-15] = 0x05050505;  // R5
+            threadStacks[i][STACKSIZE-16] = 0x04040404;
 
-    IDCounter = IDCounter << 16;
-    threadControlBlocks[i].ID = IDCounter | i;
+            int j;
+            j=i-1;
 
-    threadControlBlocks[i].priority = priority;
-    threadControlBlocks[i].alive = true;
-    initStack(i);
-    threadStacks[i][STACKSIZE-2] = (uint32_t)threadToAdd;
+            while (i!=j){
+                if (threadControlBlocks[j].alive == 1) break;
 
-    int k = 0;
-    while(*str != 0)
-    {
-        threadControlBlocks[i].threadName[k] = *str++;
-        k++;
-    }
+                j--;
+                if (j < 0 ) j= MAX_THREADS -1;
+            }
 
-    NumberOfThreads++;
-    IDCounter++;
-    EndCriticalSection(state);
-    return 0;
+            tcb_t* temp_ptr;
+            threadControlBlocks[i].next = threadControlBlocks[j].next;
+            temp_ptr =  threadControlBlocks[j].next;
+            temp_ptr->previous = &threadControlBlocks[i];
+            threadControlBlocks[i].previous = &threadControlBlocks[j];
+            threadControlBlocks[j].next = &threadControlBlocks[i] ;
+        }
+
+        NumberOfThreads++;
+        IDCounter++;
+        EndCriticalSection(sys_status);
+        return 0;
+
 }
 
 /*

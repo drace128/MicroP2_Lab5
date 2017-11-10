@@ -292,6 +292,7 @@ void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_
 void InitBoardState();
 
 int checkForCollision(Ball_t* ball);
+void displayScore();
 
 /*********************************************** Public Functions *********************************************************************/
 
