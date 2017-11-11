@@ -11,9 +11,9 @@
 /*********************************************** Includes ********************************************************************/
 #include <stdbool.h>
 #include <stdint.h>
-#include "../G8RTOS_Lab5/G8RTOS.h"
+#include "G8RTOS.h"
 #include "cc3100_usage.h"
-#include "LCDLib.h"
+#include "LCD.h"
 /*********************************************** Includes ********************************************************************/
 
 /*********************************************** Externs ********************************************************************/
@@ -141,6 +141,8 @@ typedef struct
     int16_t currentCenterY;
     uint16_t color;
     bool alive;
+    bool RED_flag;
+    bool GREEN_flag;
 } Ball_t;
 
 /*
@@ -290,6 +292,10 @@ void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_
  * Initializes and prints initial game state
  */
 void InitBoardState();
+
+int checkForCollision(Ball_t* ball);
+void displayScore();
+void LCD_tap();
 
 /*********************************************** Public Functions *********************************************************************/
 
