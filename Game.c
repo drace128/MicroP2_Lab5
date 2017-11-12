@@ -11,7 +11,7 @@
 #include "time.h"
 #include "stdbool.h"
 #include "leds.h"
-
+#define winnigScore 16
 int16_t xCoord, yCoord;
 GeneralPlayerInfo_t host, client;
 PrevPlayer_t oldhost, oldclient;
@@ -33,6 +33,8 @@ uint16_t global_x;
 uint16_t global_y;
 uint16_t LED_HOST=0;
 uint16_t LED_CLIENT=0;
+int listen_to_restart_flag =0;
+int restart=0;
 
 
 
@@ -281,7 +283,7 @@ void CreateGame()
     client.position = BOTTOM;
     oldhost.Center = host.currentCenter;
     oldclient.Center = client.currentCenter;
-
+    LCD_Clear(LCD_BLACK);
     LCD_DrawRectangle(37, 39, ARENA_MIN_Y, ARENA_MAX_Y, LCD_WHITE);
     LCD_DrawRectangle(ARENA_MIN_X, ARENA_MAX_X, ARENA_MIN_Y, ARENA_MAX_Y, LCD_GREEN);
     LCD_DrawRectangle(281, 283, ARENA_MIN_Y, ARENA_MAX_Y, LCD_WHITE);
@@ -306,9 +308,23 @@ void CreateGame()
     while(1){
 
         if (HostChoosed==1){
-            LCD_DrawRectangle(100, 220, 50,170, LCD_GREEN);
-               LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MIN_Y, ARENA_MIN_Y+PADDLE_WID, PLAYER_RED);
-                  LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
+
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "3", LCD_RED);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "2", LCD_RED);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "1", LCD_RED);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(155,120, "GO!", LCD_RED);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+
+            LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MIN_Y, ARENA_MIN_Y+PADDLE_WID, PLAYER_RED);
+            LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
             G8RTOS_AddThread(&DrawObjects, 1, "draw");
             G8RTOS_AddThread(&GenerateBall, 1, "genBall");
 
@@ -319,13 +335,27 @@ void CreateGame()
         }
 
         if (ClientChoosed==1){
-            LCD_DrawRectangle(100, 220, 50,170, LCD_GREEN);
-               LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MIN_Y, ARENA_MIN_Y+PADDLE_WID, PLAYER_RED);
-                  LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
+
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "3", LCD_BLUE);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "2", LCD_BLUE);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(160,120, "1", LCD_BLUE);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_Text(155,120, "GO!", LCD_BLUE);
+            G8RTOS_OS_Sleep(30000);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_DrawRectangle(90, 230, 40,180, LCD_GREEN);
+            LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MIN_Y, ARENA_MIN_Y+PADDLE_WID, PLAYER_RED);
+            LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
             G8RTOS_AddThread(&DrawObjects, 1, "draw");
             G8RTOS_AddThread(&GenerateBall, 1, "genBall");
 
-             G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
+            G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
             G8RTOS_KillSelf();
 
         }
@@ -384,11 +414,13 @@ void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_
 
     if(previousBall->CenterX !=  currentBall->currentCenterX || previousBall->CenterY !=  currentBall->currentCenterY){
         if (currentBall->RED_flag){
+            LCD_DrawRectangle(previousBall->CenterX-6, previousBall->CenterX+6,5,6, LCD_GREEN);
             LCD_DrawRectangle(previousBall->CenterX-4, previousBall->CenterX+4,0,4, LCD_RED);
             currentBall->RED_flag= false;
         } else
 
             if (currentBall->GREEN_flag){
+                LCD_DrawRectangle(previousBall->CenterX-6, previousBall->CenterX+6,234,235, LCD_GREEN);
                 LCD_DrawRectangle(previousBall->CenterX-4, previousBall->CenterX+4,236,240, LCD_BLUE);
                 currentBall->GREEN_flag= false;
             }
@@ -462,6 +494,7 @@ void displayScore(){
         LCD_Text(10, 4, clientScoreString, LCD_RED);
 
         clientScoreChanged = false;
+        if (clientScore == winnigScore)  G8RTOS_AddThread(&EndOfGameHost, 1, "EndOfGameHost");
     }
 
 
@@ -474,12 +507,13 @@ void displayScore(){
         LCD_DrawRectangle(10, 25,220,235, LCD_BLACK);
 
         LED_HOST = (LED_HOST << 1) | 0x0001;
-         write_leds(BLUE,LED_HOST );
+        write_leds(BLUE,LED_HOST );
         LCD_Text(10, 220, hostScoreString, LCD_BLUE);
         //LCD_DrawRectangle(10, 25,220,235, LCD_GREEN);
 
         // LCD_Text(10, 220, clientScoreString, LCD_BLUE);
         HostScoreChanged = false;
+        if (hostScore == winnigScore)  G8RTOS_AddThread(&EndOfGameHost, 1, "EndOfGameHost");
     }
 
 
@@ -492,16 +526,69 @@ void  LCD_tap()
     global_x=xy.x;
     global_y=xy.y;
     P4IE = 0;
-    if (global_x > 100 && global_x < 220 && global_y > 50 && global_y < 90) HostChoosed++;
-    if (global_x > 100 && global_x < 220 && global_y > 130 && global_y < 170) ClientChoosed++;
+    if(listen_to_restart_flag==0){
+    if (global_x > 100 && global_x < 220 && global_y > 50 && global_y < 90){ listen_to_restart_flag = 2;HostChoosed++;}
+    if (global_x > 100 && global_x < 220 && global_y > 130 && global_y < 170) {listen_to_restart_flag = 2;ClientChoosed++;}
+
+    }
+
+
+    if(listen_to_restart_flag==1)
+    {
+        if (global_x > 100 && global_x < 220 && global_y > 130 && global_y < 170){
+            restart=1;
+            listen_to_restart_flag =0;
+            HostChoosed=0;
+            ClientChoosed=0;
+        }
+    }
 
 
 
     P4IFG &= ~BIT0;
-    P4IFG &= ~BIT0;
-    P4IE = 1;
+          P4IFG &= ~BIT0;
+          P4IE = 1;
+
+}
+
+void EndOfGameHost(){
+    G8RTOS_KillAllOtherThreads();
+    for (int i = 0; i < MAX_NUM_OF_BALLS; i++){
+        balls[i].alive = false;
+    }
+
+    numberOfBalls=0;
+    G8RTOS_AddThread(&IdleThread, 255, "idle");
+    if (clientScore == winnigScore){
+        LCD_Clear(LCD_RED);
+        LCD_Text(70,65, "The winner is : Client", LCD_BLACK);
+    }
+
+    if (hostScore == winnigScore){
+        LCD_Clear(LCD_BLUE);
+        LCD_Text(70,65, "The winner is : Host", LCD_WHITE);
+    }
 
 
+
+    LCD_DrawRectangle(100, 220, 130, 170, LCD_BLACK);
+    LCD_Text(120,145, "Play again!", LCD_WHITE);
+    listen_to_restart_flag = 1;
+    restart = 0;
+    while(1){
+
+        if (restart==1){
+            restart=0;
+            HostChoosed=0;
+            ClientChoosed=0;
+            hostScore =0;
+            clientScore =0;
+            LED_HOST =0;
+            LED_CLIENT=0;
+            G8RTOS_AddThread(&CreateGame, 1, "CreateGame");
+            G8RTOS_KillSelf();
+        }
+    }
 
 }
 
