@@ -10,6 +10,7 @@
 #include "G8RTOS.h"
 #include "time.h"
 #include "stdbool.h"
+#include "cc3100_usage.h"
 #include "leds.h"
 #define winnigScore 16
 int16_t xCoord, yCoord;
@@ -36,9 +37,106 @@ uint16_t LED_CLIENT=0;
 int listen_to_restart_flag =0;
 int restart=0;
 
+GameState_t game;
+SpecificPlayerInfo_t player1;
+uint8_t buffer[100];
 
+void fillBuffer(uint8_t * buffer, uint8_t numOfBytes, int data, int index)
+{
+    if(numOfBytes == 1)
+    {
+        buffer[index] = data;
+    }
+    else if(numOfBytes == 2)
+    {
+        buffer[index] = data >> 8;
+        buffer[index+1] = data;
+    }
+    else if(numOfBytes == 3)
+    {
+        buffer[index] = data >> 16;
+        buffer[index+1] = data >> 8;
+        buffer[index+2] = data;
+    }
+    else if(numOfBytes == 4)
+    {
+        buffer[index] = data >> 24;
+        buffer[index+1] = data >> 16;
+        buffer[index+2] = data >> 8;
+        buffer[index+3] = data;
+    }
+}
 
+//The JoinGame thread is like CreateGame for the client
 
+void JoinGame()
+{
+    player1.IP_address = getLocalIP();
+    player1.displacement = 0;
+    player1.ready = false;
+    player1.joined = false;
+    player1.acknowledge = false;
+
+    fillBuffer(buffer, 4, player1.IP_address, 0);
+    fillBuffer(buffer, 2, player1.displacement, 4);
+    fillBuffer(buffer, 1, player1.ready, 6);
+    fillBuffer(buffer, 1, player1.joined, 7);
+    fillBuffer(buffer, 1, player1.acknowledge, 8);
+
+    SendData(buffer, HOST_IP_ADDR, sizeof(buffer));
+
+    while(ReceiveData(buffer, sizeof(buffer)) < 0);
+    //show connection with an LED...
+
+    G8RTOS_AddThread(&ReadJoystickClient, 1, "clientJoy");
+    G8RTOS_AddThread(&SendDataToHost, 1, "dataToHost");
+    G8RTOS_AddThread(&ReceiveDataFromHost, 1, "dataFromHost");
+    G8RTOS_AddThread(&DrawObjects, 1, "drawObjects");
+    //G8RTOS_AddThread(&MoveLEDs, 1, "LEDs");
+    G8RTOS_AddThread(&IdleThread, 255, "idle");
+
+    G8RTOS_KillSelf();
+}
+
+void ReceiveDataFromHost()
+{
+    while(1)
+    {
+        while(ReceiveData(buffer, sizeof(buffer)) < 0);
+        {
+            //G8RTOS_SignalSemaphore(something);
+            //G8RTOS_WaitSemaphore(something);
+            G8RTOS_OS_Sleep(1);
+        }
+        //manipulate the received data
+
+        if(game.gameDone)
+        {
+            G8RTOS_AddThread(&EndOfGameClient, 1, "endall");
+        }
+
+        G8RTOS_OS_Sleep(5);
+    }
+}
+
+void SendDataToHost()
+{
+    while(1)
+    {
+        fillBuffer(buffer, 4, player1.IP_address, 0);
+        fillBuffer(buffer, 2, player1.displacement, 4);
+        fillBuffer(buffer, 1, player1.ready, 6);
+        fillBuffer(buffer, 1, player1.joined, 7);
+        fillBuffer(buffer, 1, player1.acknowledge, 8);
+        SendData(buffer, HOST_IP_ADDR, sizeof(buffer));
+        G8RTOS_OS_Sleep(2);
+    }
+}
+
+void EndOfGameClient()
+{
+
+}
 
 void GenerateBall()
 {
