@@ -1,45 +1,68 @@
+
+//*****************************************************************************
+//
+// MSP432 main.c template - Empty main
+//
+//****************************************************************************
+
+#include "msp.h"
+#include "BSP.h"
+#include "G8RTOS.h"
+#include <stdio.h>
+#include <stdbool.h>
+#include "Game.h"
+#include "cc3100_usage.h"
+#include "driverlib.h"
+playerType player1, player2;
+void main(void)
+{
+    G8RTOS_InitSemaphore(receiveDataSem, 0);
+    player1 = Host;
+     player2 = Client;
+    // sl_Select()
+   //  initCC3100(player1);        //initialize the host
+    // initCC3100(player2);        //initialize the client
+
+    WDTCTL = WDTPW | WDTHOLD;           // Stop watchdog timer
+    G8RTOS_Init();
+
+
+      G8RTOS_AddThread(&IdleThread, 255, "idle");
+      G8RTOS_AddAPeriodicEvent(&LCD_tap, 5, PORT4_IRQn);
+
+    //initCC3100(player1);
+    //  G8RTOS_AddThread(&CreateGame, 1, "idle");
+    // isHost= true;
+
+     initCC3100(player2);
+     G8RTOS_AddThread(&JoinGame, 1,"sfsf");
+   //  isHost= false;
+
+      G8RTOS_Launch();
+
+    //G8RTOS_AddThread(&CreateGame, 1, "start");
+   //CreateGame();
+ //   G8RTOS_AddThread(&IdleThread, 255, "idle");
+   // G8RTOS_AddThread(&CreateGame, 1, "idle");
+   // G8RTOS_AddThread(&JoinGame, 1,"sfsf");
+   // G8RTOS_AddThread(&ReceiveDataFromHost,1,"sfsf");
+   // G8RTOS_AddAPeriodicEvent(&LCD_tap, 5, PORT4_IRQn);
+
+    //G8RTOS_AddThread(&DrawObjects, 1, "draw");
+    //G8RTOS_AddThread(&GenerateBall, 1, "genBall");
+  //  G8RTOS_AddThread(&displayScore, 1, "genBall");
+   // G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
+    while(1);
+}
+
+
+
 //*****************************************************************************
 //
 // MSP432 main.c template - Empty main
 //
 //****************************************************************************
 /*
-#include "msp.h"
-#include "BSP.h"
-#include "G8RTOS.h"
-#include <stdio.h>
-#include "Game.h"
-
-void main(void)
-{
-    WDTCTL = WDTPW | WDTHOLD;           // Stop watchdog timer
-    G8RTOS_Init();
-
-    //G8RTOS_AddThread(&CreateGame, 1, "start");
-   //CreateGame();
-    G8RTOS_AddThread(&IdleThread, 255, "idle");
-    G8RTOS_AddThread(&CreateGame, 1, "idle");
-    G8RTOS_AddAPeriodicEvent(&LCD_tap, 5, PORT4_IRQn);
-    G8RTOS_Launch();
-    //G8RTOS_AddThread(&DrawObjects, 1, "draw");
-    //G8RTOS_AddThread(&GenerateBall, 1, "genBall");
-  //  G8RTOS_AddThread(&displayScore, 1, "genBall");
-   // G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
-
-
-    while(1);
-}
-
-
-*/
-
-
-//*****************************************************************************
-//
-// MSP432 main.c template - Empty main
-//
-//****************************************************************************
-
 #include "msp.h"
 #include "BSP.h"
 #include "G8RTOS.h"
@@ -109,7 +132,7 @@ void main(void)
 
 
 
-
+*/
 
 
 

@@ -10,8 +10,10 @@
 #include "G8RTOS.h"
 #include "time.h"
 #include "stdbool.h"
+#include "cc3100_usage.h"
 #include "leds.h"
-#define winnigScore 16
+#define winnigScore 100
+
 int16_t xCoord, yCoord;
 GeneralPlayerInfo_t host, client;
 PrevPlayer_t oldhost, oldclient;
@@ -35,10 +37,284 @@ uint16_t LED_HOST=0;
 uint16_t LED_CLIENT=0;
 int listen_to_restart_flag =0;
 int restart=0;
+bool isHost = true;
+
+GameState_t game;
+SpecificPlayerInfo_t player1;
+uint8_t buffer[100];
+
+void fillBuffer(uint8_t * buffer, uint8_t numOfBytes, int data, int index)
+{
+    if(numOfBytes == 1)
+    {
+        buffer[index] = data;
+    }
+    else if(numOfBytes == 2)
+    {
+        buffer[index+1] = data >> 8;
+        buffer[index] = data;
+    }
+    else if(numOfBytes == 3)
+    {
+        buffer[index] = data >> 16;
+        buffer[index+1] = data >> 8;
+        buffer[index+2] = data;
+    }
+    else if(numOfBytes == 4)
+    {
+        buffer[index] = data >> 24;
+        buffer[index+1] = data >> 16;
+        buffer[index+2] = data >> 8;
+        buffer[index+3] = data;
+    }
+}
+
+
+inline int16_t emptyBuffer_16(uint8_t * buffer, int index)
+{
+    int16_t receivedData = (buffer[index+1]&0x00FF << 8)| buffer[index]&0x00FF ;
+    return receivedData;
+}
+
+
+
+//The JoinGame thread is like CreateGame for the client
+
+void JoinGame()
+{
+
+    isHost = false;
+    host.color = PLAYER_RED;
+    host.currentCenter = PADDLE_X_CENTER;
+    host.position = TOP;
+    client.color = PLAYER_BLUE;
+    client.currentCenter = PADDLE_X_CENTER;
+    client.position = BOTTOM;
+    oldhost.Center = host.currentCenter;
+    oldclient.Center = client.currentCenter;
+    LCD_Clear(LCD_BLACK);
+    LCD_DrawRectangle(37, 39, ARENA_MIN_Y, ARENA_MAX_Y, LCD_WHITE);
+    LCD_DrawRectangle(ARENA_MIN_X, ARENA_MAX_X, ARENA_MIN_Y, ARENA_MAX_Y, LCD_GREEN);
+    LCD_DrawRectangle(281, 283, ARENA_MIN_Y, ARENA_MAX_Y, LCD_WHITE);
+    LCD_Text(10, 4, "00", LCD_RED);
+    LCD_Text(10, 220, "00", LCD_BLUE);
+    LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MIN_Y, ARENA_MIN_Y+PADDLE_WID, PLAYER_RED);
+    LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
+
+    /* player1.IP_address = getLocalIP();
+    player1.displacement = 0;
+    player1.ready = false;
+    player1.joined = false;
+    player1.acknowledge = false;
+
+    fillBuffer(buffer, 4, player1.IP_address, 0);
+    fillBuffer(buffer, 2, player1.displacement, 4);
+    fillBuffer(buffer, 1, player1.ready, 6);
+    fillBuffer(buffer, 1, player1.joined, 7);
+    fillBuffer(buffer, 1, player1.acknowledge, 8);
+     */
+    // SendData(buffer, HOST_IP_ADDR, sizeof(buffer));
+
+    //   while(ReceiveData(buffer, sizeof(buffer)) < 0);
+    //show connection with an LED...
+
+    //  G8RTOS_AddThread(&ReadJoystickClient, 1, "clientJoy");
+    // G8RTOS_AddThread(&SendDataToHost, 1, "dataToHost");
+    G8RTOS_AddThread(&ReceiveDataFromHost, 1, "dataFromHost");
+    G8RTOS_AddThread(&DrawObjects, 1, "drawObjects");
+    //G8RTOS_AddThread(&MoveLEDs, 1, "LEDs");
+
+    //   G8RTOS_AddThread(&IdleThread, 255, "idle");
+
+    G8RTOS_KillSelf();
+    while(1);
+}
+
+void ReceiveDataFromHost()
+{
+    _u32 ClientIP = getLocalIP();
+    buffer[0] = (ClientIP & 0x000000ff);
+    buffer[1] = (ClientIP & 0x0000ff00) >> 8;
+    buffer[2] = (ClientIP & 0x00ff0000) >> 16;
+    buffer[3] = (ClientIP & 0xff000000) >> 24;
+    //  printf("data being sent: %d\n", buffer);
+    SendData(buffer, HOST_IP_ADDR, sizeof(buffer));
+
+    while(1)
+    {
+     //  while(buffer[0]== buffer[2]){
+        while(ReceiveData(buffer, 20) < 0);
+        {
+
+
+            //G8RTOS_SignalSemaphore(something);
+            //G8RTOS_WaitSemaphore(something);
+
+           // G8RTOS_OS_Sleep(20);
 
 
 
 
+       }
+        G8RTOS_OS_Sleep(5);
+        SendData( buffer, HOST_IP_ADDR, 20);
+        // G8RTOS_WaitSemaphore(receiveDataSem);
+
+        client.currentCenter= emptyBuffer_16(buffer, 0);
+        host.currentCenter=client.currentCenter;
+
+            int j = 2;
+                for (int i = 0 ; i < MAX_NUM_OF_BALLS ; i++ ){
+                     balls[i].currentCenterX= emptyBuffer_16(buffer, j);
+                    j+=2;
+                   balls[i].currentCenterY =emptyBuffer_16(buffer, j);
+                   j+=2;
+
+                    balls[i].alive= 1;
+                    j++;
+
+                }
+
+        // G8RTOS_SignalSemaphore(receiveDataSem);
+        // host.position = buffer[2];
+        //   printf("currentCenter: %d\n",  buffer[0]);
+        // printf("position: %d\n", buffer[2]);
+        //manipulate the received data
+
+        if(game.gameDone)
+        {
+            G8RTOS_AddThread(&EndOfGameClient, 1, "endall");
+        }
+
+        G8RTOS_OS_Sleep(5);
+    }
+}
+
+void SendDataToClient(){
+
+    while(ReceiveData(buffer, sizeof(buffer)) < 0){
+        G8RTOS_OS_Sleep(10);
+
+    }
+    //printf("received data: %s\n", buffer);
+    // LCD_Text(140, 120, buffer, LCD_WHITE);
+    _u32 temp_IP;
+
+    temp_IP = ((buffer[3]& 0x000000ff) << 24 )|((buffer[2]& 0x000000ff) << 16)|((buffer[1]& 0x000000ff) << 8)|((buffer[0]& 0x000000ff) );
+    temp_IP = temp_IP;
+    while(1){
+
+        // fillBuffer(buffer, 4, player1.IP_address, 0);
+        //  SpecificPlayerInfo_t player;
+        //  GeneralPlayerInfo_t players[MAX_NUM_OF_PLAYERS];
+
+
+        //game.players[0].currentCenter = host.currentCenter;
+        // fillBuffer(buffer, 2, 8, 0);
+
+      //  game.players[0].position = host.position;
+        // fillBuffer(buffer, 2,9, 2);
+        //buffer[0]= host.currentCenter;
+        //fillBuffer(buffer,  2, host.currentCenter, 0);
+        buffer[1] = host.currentCenter >> 8;
+        buffer[0] = host.currentCenter;
+
+        buffer[3] = balls[0].currentCenterX >> 8;
+        buffer[2] = balls[0].currentCenterX ;
+
+        buffer[5] =  balls[0].currentCenterY >> 8;
+        buffer[4] =  balls[0].currentCenterY;
+
+        buffer[7] =  balls[0].alive >> 8;
+
+        buffer[9] = balls[1].currentCenterX >> 8;
+        buffer[10] = balls[1].currentCenterX ;
+
+        buffer[12] =  balls[1].currentCenterY >> 8;
+        buffer[11] =  balls[1].currentCenterY;
+
+       buffer[13] =  balls[1].alive >> 8;
+
+
+
+       /* int j = 2;
+        for (int i = 0 ; i < MAX_NUM_OF_BALLS ; i++ ){
+            fillBuffer(buffer,  2, balls[i].currentCenterX, j);
+            j+=2;
+            fillBuffer(buffer,  2,balls[i].currentCenterY, j);
+            j+=2;
+           fillBuffer(buffer,  1, balls[i].alive, j);
+           j++;*/
+
+      //  buffer[1]= host.position;
+       // int j = 2;
+        /*  for (int i = 0 ; i < MAX_NUM_OF_BALLS ; i++ ){
+            buffer[j] = balls[i].currentCenterX;
+            j++;
+            buffer[j] = balls[i].currentCenterY;
+            j++;
+            buffer[j] = balls[i].alive;
+            j++;
+            buffer[j] = balls[i].color;
+            j++;
+
+        }*/
+
+        SendData( buffer, temp_IP, 20);
+        G8RTOS_OS_Sleep(5);
+        while(ReceiveData(buffer, 20)) ;
+        //  game.players[0].color = host.color;
+
+
+        // game.players[1].currentCenter = client.currentCenter;
+        // game.players[1].position = client.position;
+        //  game.players[1].color = client.color;
+
+        //  &buffer = &game.player;
+
+        //  fillBuffer(game, 4, player1.IP_address, 0);
+
+        G8RTOS_OS_Sleep(5);
+
+        // fillBuffer(buffer, 4, player1.IP_address, 0);
+        //  Ball_t balls[MAX_NUM_OF_BALLS];
+        //  for (8){
+
+        //  }
+        //  uint16_t numberOfBalls;
+        //   fillBuffer(buffer, 4, player1.IP_address, 0);
+        //   bool winner;
+        //   fillBuffer(buffer, 4, player1.IP_address, 0);
+        //   bool gameDone;
+        //   fillBuffer(buffer, 4, player1.IP_address, 0);
+        //    uint8_t LEDScores[2];
+        //   fillBuffer(buffer, 4, player1.IP_address, 0);
+        //    uint8_t overallScores[2];
+        //   fillBuffer(buffer, 4, player1.IP_address, 0);
+        //    fillBuffer(buffer, 4, player1.IP_address, 0);
+
+    }
+
+}
+
+void SendDataToHost()
+{
+    while(1)
+    {
+       // fillBuffer(buffer, 4, player1.IP_address, 0);
+        fillBuffer(buffer, 2, player1.displacement, 4);
+        fillBuffer(buffer, 1, player1.ready, 6);
+        fillBuffer(buffer, 1, player1.joined, 7);
+        fillBuffer(buffer, 1, player1.acknowledge, 8);
+        SendData(buffer, HOST_IP_ADDR, sizeof(buffer));
+        G8RTOS_OS_Sleep(2);
+    }
+}
+
+void EndOfGameClient()
+{
+
+}
 
 void GenerateBall()
 {
@@ -268,13 +544,13 @@ void DrawObjects()
         dob =0;
         i++;
         if (i == 8) i =0;
-        G8RTOS_OS_Sleep(20);
+        G8RTOS_OS_Sleep(21);
     }
 }
 
 void CreateGame()
 {
-
+    isHost = true;
     host.color = PLAYER_RED;
     host.currentCenter = PADDLE_X_CENTER;
     host.position = TOP;
@@ -329,6 +605,7 @@ void CreateGame()
             G8RTOS_AddThread(&GenerateBall, 1, "genBall");
 
             G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
+            G8RTOS_AddThread(&SendDataToClient,1,"sendingdatatoclient");
             G8RTOS_KillSelf();
 
 
@@ -354,7 +631,7 @@ void CreateGame()
             LCD_DrawRectangle(128, 128+PADDLE_LEN, ARENA_MAX_Y-PADDLE_WID, ARENA_MAX_Y, PLAYER_BLUE);
             G8RTOS_AddThread(&DrawObjects, 1, "draw");
             G8RTOS_AddThread(&GenerateBall, 1, "genBall");
-
+            G8RTOS_AddThread(&SendDataToClient,1,"sendingdatatoclient");
             G8RTOS_AddThread(&ReadJoystickClient, 1, "joystick");
             G8RTOS_KillSelf();
 
@@ -373,35 +650,71 @@ void CreateGame()
 
 void UpdatePlayerOnScreen(PrevPlayer_t * prevPlayerIn, GeneralPlayerInfo_t * outPlayer)
 {
-    up = 1;
-    if(outPlayer->currentCenter != prevPlayerIn->Center   )
+    if (isHost==true){
+        if(outPlayer->currentCenter != prevPlayerIn->Center   )
+        {
+
+            if (outPlayer->currentCenter > prevPlayerIn->Center){       //moving right
+                if (outPlayer->position == BOTTOM){
+                    LCD_DrawRectangle(outPlayer->currentCenter-(PADDLE_LEN_D2+4), outPlayer->currentCenter-PADDLE_LEN_D2, 0, PADDLE_WID, LCD_GREEN);
+                    LCD_DrawRectangle(outPlayer->currentCenter+(PADDLE_LEN_D2-4), outPlayer->currentCenter+PADDLE_LEN_D2, 0, PADDLE_WID, PLAYER_RED);
+                }else
+                {
+                    LCD_DrawRectangle(outPlayer->currentCenter-(PADDLE_LEN_D2+4), outPlayer->currentCenter-PADDLE_LEN_D2, 240-PADDLE_WID, 240, LCD_GREEN);
+                    LCD_DrawRectangle(outPlayer->currentCenter+(PADDLE_LEN_D2-4), outPlayer->currentCenter+PADDLE_LEN_D2, 240-PADDLE_WID, 240, PLAYER_BLUE);
+                }
+
+            }
+            else        //moving left
+            {
+                if (outPlayer->position == BOTTOM){
+                    LCD_DrawRectangle(outPlayer->currentCenter+PADDLE_LEN_D2, outPlayer->currentCenter+(PADDLE_LEN_D2+4), 0, PADDLE_WID, LCD_GREEN);
+                    LCD_DrawRectangle(outPlayer->currentCenter-PADDLE_LEN_D2, outPlayer->currentCenter-(PADDLE_LEN_D2-4), 0, PADDLE_WID, PLAYER_RED);
+                }else
+                {
+                    LCD_DrawRectangle(outPlayer->currentCenter+PADDLE_LEN_D2, outPlayer->currentCenter+(PADDLE_LEN_D2+4), 240-PADDLE_WID, 240, LCD_GREEN);
+                    LCD_DrawRectangle(outPlayer->currentCenter-PADDLE_LEN_D2, outPlayer->currentCenter-(PADDLE_LEN_D2-4), 240-PADDLE_WID, 240, PLAYER_BLUE);
+                }
+            }
+            prevPlayerIn->Center = outPlayer->currentCenter;
+        }
+    }else
     {
 
-        if (outPlayer->currentCenter > prevPlayerIn->Center){       //moving right
-            if (outPlayer->position == BOTTOM){
-                LCD_DrawRectangle(outPlayer->currentCenter-(PADDLE_LEN_D2+4), outPlayer->currentCenter-PADDLE_LEN_D2, 0, PADDLE_WID, LCD_GREEN);
-                LCD_DrawRectangle(outPlayer->currentCenter+(PADDLE_LEN_D2-4), outPlayer->currentCenter+PADDLE_LEN_D2, 0, PADDLE_WID, PLAYER_RED);
-            }else
-            {
-                LCD_DrawRectangle(outPlayer->currentCenter-(PADDLE_LEN_D2+4), outPlayer->currentCenter-PADDLE_LEN_D2, 240-PADDLE_WID, 240, LCD_GREEN);
-                LCD_DrawRectangle(outPlayer->currentCenter+(PADDLE_LEN_D2-4), outPlayer->currentCenter+PADDLE_LEN_D2, 240-PADDLE_WID, 240, PLAYER_BLUE);
-            }
+        int prevPos = prevPlayerIn->Center;
+        int xPos = outPlayer->currentCenter;
 
-        }
-        else        //moving left
+
+        if(prevPos != xPos   )
         {
-            if (outPlayer->position == BOTTOM){
-                LCD_DrawRectangle(outPlayer->currentCenter+PADDLE_LEN_D2, outPlayer->currentCenter+(PADDLE_LEN_D2+4), 0, PADDLE_WID, LCD_GREEN);
-                LCD_DrawRectangle(outPlayer->currentCenter-PADDLE_LEN_D2, outPlayer->currentCenter-(PADDLE_LEN_D2-4), 0, PADDLE_WID, PLAYER_RED);
-            }else
-            {
-                LCD_DrawRectangle(outPlayer->currentCenter+PADDLE_LEN_D2, outPlayer->currentCenter+(PADDLE_LEN_D2+4), 240-PADDLE_WID, 240, LCD_GREEN);
-                LCD_DrawRectangle(outPlayer->currentCenter-PADDLE_LEN_D2, outPlayer->currentCenter-(PADDLE_LEN_D2-4), 240-PADDLE_WID, 240, PLAYER_BLUE);
+
+            if (xPos> prevPlayerIn->Center){       //moving right
+                if (outPlayer->position == BOTTOM){
+                    LCD_DrawRectangle(prevPos-(PADDLE_LEN_D2+4), prevPos-PADDLE_LEN_D2, 0, PADDLE_WID, LCD_GREEN);
+                    LCD_DrawRectangle(prevPos+(PADDLE_LEN_D2-4), prevPos+PADDLE_LEN_D2, 0, PADDLE_WID, PLAYER_RED);
+                }else
+                {
+                    LCD_DrawRectangle(prevPos-(PADDLE_LEN_D2+4), prevPos-PADDLE_LEN_D2, 240-PADDLE_WID, 240, LCD_GREEN);
+                    LCD_DrawRectangle(prevPos+(PADDLE_LEN_D2-4), prevPos+PADDLE_LEN_D2, 240-PADDLE_WID, 240, PLAYER_BLUE);
+                }
+                prevPos+=4;
             }
+            else        //moving left
+            {
+                if (outPlayer->position == BOTTOM){
+                    LCD_DrawRectangle(prevPos+PADDLE_LEN_D2, prevPos+(PADDLE_LEN_D2+4), 0, PADDLE_WID, LCD_GREEN);
+                    LCD_DrawRectangle(prevPos-PADDLE_LEN_D2, prevPos-(PADDLE_LEN_D2-4), 0, PADDLE_WID, PLAYER_RED);
+                }else
+                {
+                    LCD_DrawRectangle(prevPos+PADDLE_LEN_D2, prevPos+(PADDLE_LEN_D2+4), 240-PADDLE_WID, 240, LCD_GREEN);
+                    LCD_DrawRectangle(prevPos-PADDLE_LEN_D2, prevPos-(PADDLE_LEN_D2-4), 240-PADDLE_WID, 240, PLAYER_BLUE);
+                }
+                prevPos-=4;
+            }
+            prevPlayerIn->Center = prevPos;
         }
-        prevPlayerIn->Center = outPlayer->currentCenter;
     }
-    up = 0;
+
 }
 
 void UpdateBallOnScreen(PrevBall_t * previousBall, Ball_t * currentBall, uint16_t outColor)
@@ -527,8 +840,8 @@ void  LCD_tap()
     global_y=xy.y;
     P4IE = 0;
     if(listen_to_restart_flag==0){
-    if (global_x > 100 && global_x < 220 && global_y > 50 && global_y < 90){ listen_to_restart_flag = 2;HostChoosed++;}
-    if (global_x > 100 && global_x < 220 && global_y > 130 && global_y < 170) {listen_to_restart_flag = 2;ClientChoosed++;}
+        if (global_x > 100 && global_x < 220 && global_y > 50 && global_y < 90){ listen_to_restart_flag = 2;HostChoosed++;}
+        if (global_x > 100 && global_x < 220 && global_y > 130 && global_y < 170) {listen_to_restart_flag = 2;ClientChoosed++;}
 
     }
 
@@ -546,8 +859,8 @@ void  LCD_tap()
 
 
     P4IFG &= ~BIT0;
-          P4IFG &= ~BIT0;
-          P4IE = 1;
+    P4IFG &= ~BIT0;
+    P4IE = 1;
 
 }
 
@@ -591,6 +904,4 @@ void EndOfGameHost(){
     }
 
 }
-
-
 
